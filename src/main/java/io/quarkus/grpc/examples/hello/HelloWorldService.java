@@ -19,10 +19,8 @@ public class HelloWorldService implements Greeter {
     public Multi<HelloReply> sayHello(HelloRequest request) {
         Stream<HelloReply> inputs = IntStream.rangeClosed(0, COUNT - 1)
                 .mapToObj(it -> HelloReply.newBuilder().setMessage(buildTestString(it)).build());
-        Multi<HelloReply> multi = Multi.createFrom().emitter(multiEmitter -> {
-            inputs.forEach(multiEmitter::emit);
-            multiEmitter.complete();
-        });
+        Multi<HelloReply> multi = Multi.createFrom().items(inputs);
+
         return multi
                 .emitOn(Infrastructure.getDefaultWorkerPool())
                 .runSubscriptionOn(Infrastructure.getDefaultWorkerPool())

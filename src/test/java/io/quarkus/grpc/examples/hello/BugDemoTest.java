@@ -4,16 +4,15 @@ import examples.Greeter;
 import examples.HelloRequest;
 import io.quarkus.grpc.GrpcClient;
 import io.quarkus.test.junit.QuarkusTest;
-import io.smallrye.mutiny.Uni;
 import io.smallrye.mutiny.infrastructure.Infrastructure;
+import org.awaitility.Awaitility;
 import org.junit.jupiter.api.Test;
 
 import java.time.Duration;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.stream.Collectors;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static io.quarkus.grpc.examples.hello.HelloWorldService.COUNT;
-import static org.assertj.core.api.Assertions.assertThat;
 
 @QuarkusTest
 class BugDemoTest {
@@ -24,19 +23,28 @@ class BugDemoTest {
     @Test
     public void bugDemoTest() {
         AtomicBoolean firstRequestLogged = new AtomicBoolean(false);
+        AtomicInteger counter = new AtomicInteger(0);
 
-        Long count = greeter.sayHello(HelloRequest.newBuilder().setName("test").build())
+        greeter.sayHello(HelloRequest.newBuilder().setName("test").build())
                 .runSubscriptionOn(Infrastructure.getDefaultWorkerPool())
                 .onRequest().invoke(requestSize -> {
                     // Log only the first request (or there will be too many)
                     if(firstRequestLogged.compareAndSet(false, true))
                         System.out.println("Client request size: " + requestSize);
                 })
-                // Simulate processing time for every item
-                .onItem().transformToUniAndMerge(item -> Uni.createFrom().item(item).onItem().delayIt().by(Duration.ofMillis(200)))
-                .collect().with(Collectors.counting())
-                .await().atMost(Duration.ofSeconds(30));
+                .subscribe().with(
+                        item -> {
+                            counter.incrementAndGet();
+                            // Simulate processing time for every item
+                            try {
+                                Thread.sleep(100);
+                            } catch (InterruptedException e) {
+                                throw new RuntimeException(e);
+                            }
+                        },
+                        Throwable::printStackTrace
+                );
 
-        assertThat(count).isEqualTo(COUNT);
+        Awaitility.await().atMost(Duration.ofSeconds(60)).until(() -> counter.get() == COUNT);
     }
 }

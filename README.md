@@ -1,4 +1,4 @@
-Quarkus gRPC Quickstart
+Quarkus gRPC Issue Demo
 ========================
 
 This project is adapted from the `grpc-plain-text-quickstart` project by Quarkus.
