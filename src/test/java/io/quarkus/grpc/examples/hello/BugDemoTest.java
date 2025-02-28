@@ -1,6 +1,7 @@
 package io.quarkus.grpc.examples.hello;
 
 import examples.Greeter;
+import examples.HelloReply;
 import examples.HelloRequest;
 import io.quarkus.grpc.GrpcClient;
 import io.quarkus.test.junit.QuarkusTest;
@@ -9,6 +10,7 @@ import org.awaitility.Awaitility;
 import org.junit.jupiter.api.Test;
 
 import java.time.Duration;
+import java.util.concurrent.Flow;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -32,18 +34,38 @@ class BugDemoTest {
                     if(firstRequestLogged.compareAndSet(false, true))
                         System.out.println("Client request size: " + requestSize);
                 })
-                .subscribe().with(
-                        item -> {
-                            counter.incrementAndGet();
-                            // Simulate processing time for every item
-                            try {
-                                Thread.sleep(100);
-                            } catch (InterruptedException e) {
-                                throw new RuntimeException(e);
-                            }
-                        },
-                        Throwable::printStackTrace
-                );
+                .subscribe().withSubscriber(new Flow.Subscriber<HelloReply>() {
+
+                    private Flow.Subscription subscription;
+
+                    @Override
+                    public void onSubscribe(Flow.Subscription subscription) {
+                        System.out.println("onSubscribe");
+                        this.subscription = subscription;
+                        this.subscription.request(1);
+                    }
+
+                    @Override
+                    public void onNext(HelloReply item) {
+                        //System.out.println("onNext");
+                        try {
+                            Thread.sleep(100);
+                        } catch (InterruptedException e) {
+                            throw new RuntimeException(e);
+                        }
+                        this.subscription.request(1);
+                    }
+
+                    @Override
+                    public void onError(Throwable throwable) {
+                        System.out.println("onError");
+                    }
+
+                    @Override
+                    public void onComplete() {
+                        System.out.println("onComplete");
+                    }
+                });
 
         Awaitility.await().atMost(Duration.ofSeconds(60)).until(() -> counter.get() == COUNT);
     }
