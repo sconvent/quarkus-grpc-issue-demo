@@ -48,6 +48,7 @@ class BugDemoTest {
                     @Override
                     public void onNext(HelloReply item) {
                         //System.out.println("onNext");
+                        counter.incrementAndGet();
                         try {
                             Thread.sleep(100);
                         } catch (InterruptedException e) {
